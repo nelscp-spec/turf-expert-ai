@@ -215,29 +215,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 4. Select and Analyze Race
   function selectCourse(course) {
+    if (!course) return;
     AppState.selectedCourse = course;
 
     let foundReunion = null;
     AppState.programme.forEach(r => {
-      r.courses.forEach(c => {
-        if (c.id === course.id) foundReunion = r;
-      });
+      if (r.courses) {
+        r.courses.forEach(c => {
+          if (c.id === course.id) foundReunion = r;
+        });
+      }
     });
     AppState.selectedReunion = foundReunion;
 
     renderSidebarReunions();
 
-    elBannerReunionCode.textContent = course.id;
-    elBannerRaceName.textContent = course.nom;
-    elBannerDiscipline.textContent = course.discipline;
-    elBannerRaceTime.textContent = course.heure;
-    elBannerHippodrome.textContent = foundReunion ? foundReunion.hippodrome : 'Hippodrome';
-    elBannerDistance.textContent = course.distance;
-    elBannerAllocation.textContent = course.allocation;
-    elBannerRunnersCount.textContent = `${course.partantsCount} Partants`;
-    elBannerDifficulty.textContent = course.difficulte;
+    if (elBannerReunionCode) elBannerReunionCode.textContent = course.id;
+    if (elBannerRaceName) elBannerRaceName.textContent = course.nom;
+    if (elBannerDiscipline) elBannerDiscipline.textContent = course.discipline;
+    if (elBannerRaceTime) elBannerRaceTime.textContent = course.heure;
+    if (elBannerHippodrome) elBannerHippodrome.textContent = foundReunion ? foundReunion.hippodrome : 'Hippodrome';
+    if (elBannerDistance) elBannerDistance.textContent = course.distance;
+    if (elBannerAllocation) elBannerAllocation.textContent = course.allocation;
+    if (elBannerRunnersCount) elBannerRunnersCount.textContent = `${course.partantsCount || (course.partants ? course.partants.length : 0)} Partants`;
+    if (elBannerDifficulty) elBannerDifficulty.textContent = course.difficulte || 'Moyen';
 
-    AppState.analysisResult = TurfEngine.analyzeRace(course, AppState.budget);
+    try {
+      AppState.analysisResult = TurfEngine.analyzeRace(course, AppState.budget);
+    } catch (err) {
+      console.error("Error analyzing race:", err);
+      AppState.analysisResult = null;
+    }
 
     renderCombinations();
     renderRunnersTable();
@@ -246,43 +254,56 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 5. Render Betting Combinations Cards
   function renderCombinations() {
-    if (!AppState.analysisResult || !AppState.analysisResult.tickets) return;
+    if (!AppState.analysisResult || !AppState.analysisResult.tickets || AppState.analysisResult.tickets.length === 0) {
+      elCombinationsGrid.innerHTML = `<p class="text-muted" style="padding: 20px;">Aucune combinaison disponible pour cette course.</p>`;
+      return;
+    }
 
     const tickets = AppState.analysisResult.tickets;
     let filteredTickets = tickets;
 
     if (AppState.activeStrategy === 'SECURITE') {
-      filteredTickets = tickets.filter(t => t.risk === 'Faible' || t.risk === 'Sécurisé');
+      filteredTickets = tickets.filter(t => t.risk === 'Faible' || t.risk === 'Sécurisé' || t.strategy === 'SECURITE');
     } else if (AppState.activeStrategy === 'EQUILIBRE') {
-      filteredTickets = tickets.filter(t => t.risk === 'Modéré' || t.risk === 'Faible' || t.risk === 'Optimisé');
+      filteredTickets = tickets.filter(t => t.risk === 'Modéré' || t.risk === 'Faible' || t.risk === 'Optimisé' || t.strategy === 'EQUILIBRE' || t.strategy === 'SECURITE');
+    }
+
+    if (filteredTickets.length === 0) {
+      filteredTickets = tickets;
     }
 
     let html = '';
     filteredTickets.forEach(ticket => {
-      const riskClass = ticket.risk === 'Faible' || ticket.risk === 'Sécurisé' ? 'green' : (ticket.risk === 'Modéré' || ticket.risk === 'Optimisé' ? 'blue' : 'purple');
+      const riskClass = (ticket.risk === 'Faible' || ticket.risk === 'Sécurisé') ? 'green' : ((ticket.risk === 'Modéré' || ticket.risk === 'Optimisé') ? 'blue' : 'purple');
+
+      const numberPills = (ticket.numbers || []).map(n => {
+        const numVal = (typeof n === 'object') ? (n.num || n.nom) : n;
+        const isFav = (typeof n === 'object') ? (n.isFavorite || n.isBaseSolide) : false;
+        return `<span class="number-badge ${isFav ? 'fav' : ''}">${numVal}</span>`;
+      }).join('');
 
       html += `
         <div class="combination-card glass-card">
           <div class="combination-header">
             <div>
-              <h3 class="ticket-type-title">${ticket.type}</h3>
-              <span class="badge-tag ${riskClass}">${ticket.strategy}</span>
+              <h3 class="ticket-type-title">${ticket.type || ticket.titre || 'Ticket PMU'}</h3>
+              <span class="badge-tag ${riskClass}">${ticket.strategy || ticket.strategie || 'PMU'}</span>
             </div>
-            <div class="ticket-stake">${ticket.stake} €</div>
+            <div class="ticket-stake">${ticket.stake || ticket.miseNum || 2} €</div>
           </div>
 
           <div class="ticket-numbers-box">
-            ${ticket.numbers.map(n => `<span class="number-badge ${n.isFavorite ? 'fav' : ''}">${n.num}</span>`).join('')}
+            ${numberPills}
           </div>
 
-          <p class="ticket-description">${ticket.reason}</p>
+          <p class="ticket-description">${ticket.reason || ticket.rationale || ''}</p>
 
           <div class="ticket-footer-stats">
             <div class="stat-pill">
-              <i class="fa-solid fa-bullseye"></i> Indice de Confiance: <strong>${ticket.confidence}%</strong>
+              <i class="fa-solid fa-bullseye"></i> Indice de Confiance: <strong>${ticket.confidence || ticket.confidenceScore || 80}%</strong>
             </div>
             <div class="stat-pill">
-              <i class="fa-solid fa-chart-line"></i> Gain Estimé: <strong>${ticket.expectedReturn} €</strong>
+              <i class="fa-solid fa-chart-line"></i> Gain Estimé: <strong>${ticket.expectedReturn || ticket.espéranceGain || '30 €'}</strong>
             </div>
           </div>
         </div>

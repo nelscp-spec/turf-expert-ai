@@ -115,7 +115,13 @@ body {
   display: block;
 }
 
-/* Search Box */
+/* Search Box & Autocomplete Suggestions */
+.search-box-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+}
+
 .search-box {
   display: flex;
   align-items: center;
@@ -123,8 +129,65 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 40px;
   padding: 4px 6px 4px 16px;
-  width: 480px;
+  width: 100%;
   transition: border-color 0.2s;
+}
+
+.search-results-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 100%;
+  background: rgba(13, 20, 34, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  max-height: 350px;
+  overflow-y: auto;
+  z-index: 1000;
+  display: none;
+}
+
+.search-results-dropdown.open {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-result-item {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.2s;
+}
+
+.search-result-item:hover {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.search-result-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #fff;
+}
+
+.search-result-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+#datePickerInput {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
 }
 
 .search-box:focus-within {

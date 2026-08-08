@@ -30,10 +30,13 @@
       </div>
 
       <div class="header-center">
-        <div class="search-box">
-          <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input type="text" id="raceSearchInput" placeholder="Rechercher une course ou un prix (ex: Vincennes, Prix d'Amérique, R1C3)...">
-          <button id="btnSearch" class="btn-search"><i class="fa-solid fa-bolt"></i> Analyser</button>
+        <div class="search-box-wrapper">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="raceSearchInput" placeholder="Rechercher une course, cheval, jockey (ex: Bayeux, Soumillon, R1C3)..." autocomplete="off">
+            <button id="btnSearch" class="btn-search"><i class="fa-solid fa-bolt"></i> Analyser</button>
+          </div>
+          <div class="search-results-dropdown" id="searchResultsDropdown"></div>
         </div>
       </div>
 
@@ -43,7 +46,8 @@
           <span id="liveStatusText">PMU Direct Connecté</span>
         </div>
         <div class="date-badge" id="currentDateBadge">
-          <i class="fa-regular fa-calendar-days"></i> <span>Aujourd'hui</span>
+          <i class="fa-regular fa-calendar-days"></i>
+          <input type="date" id="datePickerInput" title="Changer la date de course">
         </div>
       </div>
     </header>

@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const elReunionsList = document.getElementById('reunionsListContainer');
   const elCombinationsGrid = document.getElementById('combinationsGridContainer');
   const elRunnersTableBody = document.getElementById('runnersTableBody');
+  const elRunnersMobileCards = document.getElementById('runnersMobileCardsContainer');
   const elSynthesisText = document.getElementById('synthesisTextContainer');
   const elInputBudget = document.getElementById('inputBudget');
   const elBtnRecalculateBudget = document.getElementById('btnRecalculateBudget');
@@ -24,6 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const elBtnSearch = document.getElementById('btnSearch');
   const elBtnRefresh = document.getElementById('btnRefreshRaces');
   const elTabButtons = document.querySelectorAll('.tab-btn');
+  const elDatePicker = document.getElementById('datePickerInput');
+  const elDropdown = document.getElementById('searchResultsDropdown');
 
   // Modal Elements
   const elModalOverlay = document.getElementById('horseModalOverlay');
@@ -45,17 +48,56 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Initialize Application
   async function init() {
     setupEventListeners();
+    setupDatePicker();
     await loadProgramme();
   }
 
+  // Set default date in datePicker
+  function setupDatePicker() {
+    if (elDatePicker) {
+      const todayISO = new Date().toISOString().split('T')[0];
+      elDatePicker.value = todayISO;
+
+      elDatePicker.addEventListener('change', async (e) => {
+        const val = e.target.value;
+        if (val) {
+          const parts = val.split('-');
+          const ddmmyyyy = `${parts[2]}${parts[1]}${parts[0]}`;
+          await loadProgramme(ddmmyyyy);
+        }
+      });
+    }
+  }
+
   // 2. Fetch Programme
-  async function loadProgramme() {
-    elReunionsList.innerHTML = `<div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> Chargement du programme hippique...</div>`;
+  async function loadProgramme(dateStr = null) {
+    elReunionsList.innerHTML = `<div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> Chargement du programme PMU en direct...</div>`;
     
-    AppState.programme = await TurfData.getTodayProgramme();
+    let targetDateStr = dateStr;
+    if (!targetDateStr) {
+      const d = new Date();
+      targetDateStr = String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0') + d.getFullYear();
+    }
+
+    try {
+      const res = await fetch(`/api/programme?date=${targetDateStr}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          AppState.programme = data;
+        } else {
+          AppState.programme = await TurfData.getTodayProgramme();
+        }
+      } else {
+        AppState.programme = await TurfData.getTodayProgramme();
+      }
+    } catch (e) {
+      console.warn("Direct API proxy unavailable, using client dataset fallback:", e);
+      AppState.programme = await TurfData.getTodayProgramme();
+    }
+
     renderSidebarReunions();
 
-    // Select default first race if available
     if (AppState.programme.length > 0 && AppState.programme[0].courses.length > 0) {
       selectCourse(AppState.programme[0].courses[0]);
     }
@@ -64,7 +106,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 3. Render Sidebar Reunions & Races List
   function renderSidebarReunions() {
     if (!AppState.programme || AppState.programme.length === 0) {
-      elReunionsList.innerHTML = `<p class="text-muted">Aucune réunion disponible pour aujourd'hui.</p>`;
+      elReunionsList.innerHTML = `<p class="text-muted">Aucune réunion disponible pour cette date.</p>`;
       return;
     }
 
@@ -97,125 +139,91 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     elReunionsList.innerHTML = html;
 
-    // Attach click handlers to course items
-    document.querySelectorAll('.course-item').forEach(item => {
+    elReunionsList.querySelectorAll('.course-item').forEach(item => {
       item.addEventListener('click', () => {
         const courseId = item.getAttribute('data-course-id');
-        const foundCourse = findCourseById(courseId);
-        if (foundCourse) {
-          selectCourse(foundCourse);
-        }
+        let found = null;
+        AppState.programme.forEach(r => {
+          r.courses.forEach(c => {
+            if (c.id === courseId) found = c;
+          });
+        });
+        if (found) selectCourse(found);
       });
     });
   }
 
-  function findCourseById(courseId) {
-    for (const r of AppState.programme) {
-      for (const c of r.courses) {
-        if (c.id === courseId) return c;
-      }
-    }
-    return null;
-  }
-
-  // 4. Select and Analyze Course
+  // 4. Select and Analyze Race
   function selectCourse(course) {
     AppState.selectedCourse = course;
-    renderSidebarReunions(); // update active class
 
-    // Update Banner
-    elBannerReunionCode.textContent = `R${course.reunionNum} C${course.num}`;
+    let foundReunion = null;
+    AppState.programme.forEach(r => {
+      r.courses.forEach(c => {
+        if (c.id === course.id) foundReunion = r;
+      });
+    });
+    AppState.selectedReunion = foundReunion;
+
+    renderSidebarReunions();
+
+    elBannerReunionCode.textContent = course.id;
     elBannerRaceName.textContent = course.nom;
     elBannerDiscipline.textContent = course.discipline;
-    elBannerRaceTime.innerHTML = `<i class="fa-regular fa-clock"></i> Départ : ${course.heure}`;
-    elBannerHippodrome.textContent = course.hippodrome || "Paris-Vincennes";
-    elBannerDistance.textContent = `${course.distance} (${course.piste})`;
+    elBannerRaceTime.textContent = course.heure;
+    elBannerHippodrome.textContent = foundReunion ? foundReunion.hippodrome : 'Hippodrome';
+    elBannerDistance.textContent = course.distance;
     elBannerAllocation.textContent = course.allocation;
-    elBannerRunnersCount.textContent = `${course.partantsCount} chevaux`;
-    elBannerDifficulty.textContent = course.difficulte || "Moyen (7/10)";
+    elBannerRunnersCount.textContent = `${course.partantsCount} Partants`;
+    elBannerDifficulty.textContent = course.difficulte;
 
-    // Run Specialist Turf Analysis Engine
     AppState.analysisResult = TurfEngine.analyzeRace(course, AppState.budget);
 
-    // Render Dashboard Components
     renderCombinations();
     renderRunnersTable();
-    renderSynthesis();
+    renderSynthesisText();
   }
 
-  // 5. Render Betting Combination Cards
+  // 5. Render Betting Combinations Cards
   function renderCombinations() {
-    if (!AppState.analysisResult) return;
+    if (!AppState.analysisResult || !AppState.analysisResult.tickets) return;
 
-    let tickets = AppState.analysisResult.combinations;
+    const tickets = AppState.analysisResult.tickets;
+    let filteredTickets = tickets;
 
-    // Filter by user selected strategy
     if (AppState.activeStrategy === 'SECURITE') {
-      tickets = tickets.filter(t => t.strategie === 'SECURITE');
+      filteredTickets = tickets.filter(t => t.risk === 'Faible' || t.risk === 'Sécurisé');
     } else if (AppState.activeStrategy === 'EQUILIBRE') {
-      tickets = tickets.filter(t => t.strategie === 'EQUILIBRE');
-    }
-
-    if (tickets.length === 0) {
-      elCombinationsGrid.innerHTML = `<p class="text-muted">Aucune combinaison correspondant au filtre sélectionné.</p>`;
-      return;
+      filteredTickets = tickets.filter(t => t.risk === 'Modéré' || t.risk === 'Faible' || t.risk === 'Optimisé');
     }
 
     let html = '';
-    tickets.forEach(ticket => {
-      const cardStyleClass = ticket.strategie.toLowerCase();
+    filteredTickets.forEach(ticket => {
+      const riskClass = ticket.risk === 'Faible' || ticket.risk === 'Sécurisé' ? 'green' : (ticket.risk === 'Modéré' || ticket.risk === 'Optimisé' ? 'blue' : 'purple');
 
       html += `
-        <div class="ticket-card ${cardStyleClass}">
-          <div>
-            <div class="ticket-header">
-              <div>
-                <h4 class="ticket-type">${ticket.titre}</h4>
-                <span class="ticket-formula">${ticket.formule}</span>
-              </div>
-              <span class="confidence-badge ${ticket.confidenceClass}">
-                <i class="fa-solid fa-circle-check"></i> ${ticket.badge}
-              </span>
+        <div class="combination-card glass-card">
+          <div class="combination-header">
+            <div>
+              <h3 class="ticket-type-title">${ticket.type}</h3>
+              <span class="badge-tag ${riskClass}">${ticket.strategy}</span>
             </div>
-
-            <div class="horses-selection-list">
-      `;
-
-      ticket.chevaux.forEach((horse, idx) => {
-        let pillClass = 'base';
-        if (horse.role.includes('Favori') || horse.role.includes('Sécurité')) pillClass = 'fav';
-        if (horse.role.includes('Tocard') || horse.role.includes('Outsider')) pillClass = 'outsider';
-
-        html += `
-          <div class="selection-row">
-            <div class="horse-info-mini">
-              <span class="horse-num-pill ${pillClass}">${horse.num}</span>
-              <div>
-                <span class="horse-name-mini">${horse.nom}</span>
-                <span class="horse-role-tag ${horse.roleClass}">${horse.role}</span>
-              </div>
-            </div>
-            <span class="horse-odds-mini">${horse.cote}</span>
-          </div>
-        `;
-      });
-
-      html += `
-            </div>
-
-            <div class="ticket-rationale">
-              <i class="fa-solid fa-lightbulb text-amber"></i> ${ticket.rationale}
-            </div>
+            <div class="ticket-stake">${ticket.stake} €</div>
           </div>
 
-          <div class="ticket-footer">
-            <div class="stake-amount">
-              <span class="stake-label">Mise suggérée :</span>
-              <span class="stake-val">${ticket.miseConseillee}</span>
+          <div class="ticket-numbers-box">
+            ${ticket.numbers.map(n => `<span class="number-badge ${n.isFavorite ? 'fav' : ''}">${n.num}</span>`).join('')}
+          </div>
+
+          <p class="ticket-description">${ticket.reason}</p>
+
+          <div class="ticket-footer-stats">
+            <div class="stat-pill">
+              <i class="fa-solid fa-bullseye"></i> Indice de Confiance: <strong>${ticket.confidence}%</strong>
             </div>
-            <button class="btn-place-bet" onclick="alert('Ticket prêt ! Vous pouvez valider ce jeu sur votre compte PMU ou point de vente.')">
-              <i class="fa-solid fa-check"></i> Préparer le Pari
-            </button>
+            <div class="stat-pill">
+              <i class="fa-solid fa-chart-line"></i> Gain Estimé: <strong>${ticket.expectedReturn} €</strong>
+            </div>
           </div>
         </div>
       `;
@@ -224,96 +232,94 @@ document.addEventListener('DOMContentLoaded', async () => {
     elCombinationsGrid.innerHTML = html;
   }
 
-  // 6. Render Runners Table & Mobile Cards
+  // 6. Render Runners Table & Mobile Cards View
   function renderRunnersTable() {
-    if (!AppState.analysisResult) return;
+    if (!AppState.analysisResult || !AppState.analysisResult.scoredRunners) return;
 
-    const runners = AppState.analysisResult.runners;
+    const runners = AppState.analysisResult.scoredRunners;
     let tableHtml = '';
     let cardsHtml = '';
 
     runners.forEach(runner => {
-      // Fer Badge
-      let ferClass = 'fer-f';
-      if (runner.fer === 'D4') ferClass = 'fer-d4';
-      if (runner.fer === 'DP') ferClass = 'fer-dp';
-      if (runner.fer === 'DA') ferClass = 'fer-da';
+      const rankBadge = runner.predictedRank === 1 ? 'rank-1' : (runner.predictedRank === 2 ? 'rank-2' : (runner.predictedRank === 3 ? 'rank-3' : 'rank-other'));
+      const ferBadge = runner.fer === 'D4' ? '<span class="fer-badge d4" title="Déferré des 4">D4</span>' : 
+                      (runner.fer === 'DP' ? '<span class="fer-badge dp" title="Déferré des postérieurs">DP</span>' : 
+                      (runner.fer === 'DA' ? '<span class="fer-badge da" title="Déferré des antérieurs">DA</span>' : '<span class="fer-badge f">F</span>'));
 
-      // Stars
-      const starCount = Math.min(5, Math.max(1, Math.round((runner.presseScore || 5) / 2)));
-      const starsHtml = '<i class="fa-solid fa-star"></i>'.repeat(starCount);
+      const favTag = runner.isValueBet ? '<span class="badge-tag green" style="font-size:0.65rem; padding: 2px 6px;">💡 VALUE BET</span>' : '';
 
-      // Table Row
       tableHtml += `
-        <tr>
-          <td><span class="runner-num-badge">${runner.num}</span></td>
+        <tr data-runner-num="${runner.num}">
+          <td><span class="rank-pill ${rankBadge}">${runner.predictedRank}</span></td>
+          <td><span class="horse-num-pill base">${runner.num}</span></td>
           <td>
-            <div class="runner-name-box">
-              <span class="runner-name">${runner.nom}</span>
-              <span class="runner-sire">${runner.ageSexe || ''} - ${runner.gains || ''}</span>
+            <div class="horse-name-cell">
+              <strong>${runner.nom}</strong>
+              <span class="text-muted" style="font-size:0.75rem;">${runner.ageSexe || ''}</span>
+              ${favTag}
             </div>
           </td>
-          <td><span class="fer-badge ${ferClass}"><i class="fa-solid fa-shoe-prints"></i> ${runner.fer || 'F'}</span></td>
-          <td><strong>${runner.jockey}</strong></td>
-          <td>${runner.entraineur}</td>
-          <td><span class="musique-pill">${runner.musique}</span></td>
-          <td><span class="press-stars">${starsHtml}</span> (${runner.presseScore}/10)</td>
-          <td><span class="odds-value">${runner.cote}</span></td>
+          <td><span class="jockey-name">${runner.jockey}</span></td>
+          <td><span class="trainer-name">${runner.entraineur}</span></td>
+          <td><span class="musique-code">${runner.musique}</span></td>
+          <td>${ferBadge}</td>
+          <td><strong style="color: var(--primary-amber); font-weight:700;">${runner.cote}</strong></td>
           <td>
-            <div class="score-bar-box">
-              <div class="score-bar-bg">
-                <div class="score-bar-fill" style="width: ${runner.compositeScore}%"></div>
-              </div>
-              <span class="score-num">${runner.compositeScore}</span>
+            <div class="score-progress-bar">
+              <div class="score-fill" style="width: ${runner.compositeScore}%;"></div>
+              <span class="score-value">${runner.compositeScore} / 100</span>
             </div>
           </td>
           <td>
-            <button class="btn-detail" data-runner-num="${runner.num}" title="Fiche détaillée">
-              <i class="fa-solid fa-circle-info"></i>
+            <button class="btn-action-sm btn-horse-detail" data-runner-num="${runner.num}">
+              <i class="fa-solid fa-eye"></i> Analyse
             </button>
           </td>
         </tr>
       `;
 
-      // Mobile Card
       cardsHtml += `
         <div class="runner-mobile-card glass-card">
-          <div class="mobile-card-top">
-            <div class="mobile-num-name">
-              <span class="runner-num-badge">${runner.num}</span>
+          <div class="runner-card-header">
+            <div class="runner-card-left">
+              <span class="rank-pill ${rankBadge}">#${runner.predictedRank}</span>
+              <span class="horse-num-pill base">${runner.num}</span>
               <div>
-                <strong class="mobile-horse-name">${runner.nom}</strong>
-                <span class="mobile-horse-sub">${runner.jockey} | ${runner.entraineur}</span>
+                <h4 class="runner-card-name">${runner.nom} ${favTag}</h4>
+                <span class="runner-card-meta">${runner.ageSexe || ''} | ${ferBadge}</span>
               </div>
             </div>
-            <div class="mobile-odds-box">
-              <span class="mobile-odds-label">Cote</span>
-              <span class="mobile-odds-val">${runner.cote}</span>
+            <div class="runner-card-cote">${runner.cote}</div>
+          </div>
+
+          <div class="runner-card-body">
+            <div class="runner-card-info">
+              <div><i class="fa-solid fa-user-ninja"></i> <strong>Driver:</strong> ${runner.jockey}</div>
+              <div><i class="fa-solid fa-user-tie"></i> <strong>Entraîneur:</strong> ${runner.entraineur}</div>
+              <div><i class="fa-solid fa-list-ol"></i> <strong>Musique:</strong> ${runner.musique}</div>
+            </div>
+
+            <div class="runner-card-score">
+              <span>Score Algorithmique IA</span>
+              <div class="score-progress-bar">
+                <div class="score-fill" style="width: ${runner.compositeScore}%;"></div>
+                <span class="score-value">${runner.compositeScore} / 100</span>
+              </div>
             </div>
           </div>
 
-          <div class="mobile-card-mid">
-            <span class="fer-badge ${ferClass}"><i class="fa-solid fa-shoe-prints"></i> ${runner.fer || 'F'}</span>
-            <span class="musique-pill">${runner.musique}</span>
-            <span class="mobile-score-pill">IA: <strong>${runner.compositeScore}/100</strong></span>
-          </div>
-
-          <div class="mobile-card-bot">
-            <button class="btn-detail-mobile btn-detail" data-runner-num="${runner.num}">
-              <i class="fa-solid fa-circle-info"></i> Voir Fiche Complète
-            </button>
-          </div>
+          <button class="btn-action-sm btn-horse-detail" data-runner-num="${runner.num}" style="width: 100%; margin-top: 10px; padding: 8px;">
+            <i class="fa-solid fa-eye"></i> Voir Fiche Détillée
+          </button>
         </div>
       `;
     });
 
     elRunnersTableBody.innerHTML = tableHtml;
-    const elMobileContainer = document.getElementById('runnersMobileCardsContainer');
-    if (elMobileContainer) elMobileContainer.innerHTML = cardsHtml;
+    if (elRunnersMobileCards) elRunnersMobileCards.innerHTML = cardsHtml;
 
-    // Attach click listeners for detail buttons
-    document.querySelectorAll('.btn-detail').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.btn-horse-detail').forEach(btn => {
+      btn.addEventListener('click', () => {
         const num = parseInt(btn.getAttribute('data-runner-num'));
         const runner = runners.find(r => r.num === num);
         if (runner) openHorseModal(runner);
@@ -321,10 +327,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 7. Render Synthesis
-  function renderSynthesis() {
-    if (!AppState.analysisResult) return;
-    elSynthesisText.innerHTML = AppState.analysisResult.synthesisText;
+  // 7. Render AI Synthesis Text
+  function renderSynthesisText() {
+    if (!AppState.analysisResult || !AppState.analysisResult.synthesis) return;
+    const synth = AppState.analysisResult.synthesis;
+
+    elSynthesisText.innerHTML = `
+      <p class="synthesis-paragraph">
+        <i class="fa-solid fa-robot text-cyan"></i> <strong>Synthèse Multicritères Spécialiste :</strong> ${synth.summary}
+      </p>
+
+      <div class="synthesis-key-points">
+        <div class="key-point-card">
+          <i class="fa-solid fa-trophy yellow"></i>
+          <div>
+            <strong>Base Incontournable :</strong>
+            <p>${synth.favoriteNote}</p>
+          </div>
+        </div>
+
+        <div class="key-point-card">
+          <i class="fa-solid fa-bolt cyan"></i>
+          <div>
+            <strong>Outsider Séduisant (Value) :</strong>
+            <p>${synth.outsiderNote}</p>
+          </div>
+        </div>
+
+        <div class="key-point-card">
+          <i class="fa-solid fa-eye green"></i>
+          <div>
+            <strong>Conseil Equidia & Direct PMU :</strong>
+            <p>${synth.trendNote}</p>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   // 8. Horse Detail Modal Handler
@@ -375,7 +413,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 9. Event Listeners Setup
   function setupEventListeners() {
-    // Strategy Tab Buttons
     elTabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         elTabButtons.forEach(b => b.classList.remove('active'));
@@ -385,7 +422,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
 
-    // Budget Recalculate Button
     elBtnRecalculateBudget.addEventListener('click', () => {
       const budgetVal = parseInt(elInputBudget.value) || 20;
       AppState.budget = budgetVal;
@@ -395,7 +431,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    // Modal Close
     elModalClose.addEventListener('click', () => {
       elModalOverlay.classList.remove('open');
     });
@@ -404,42 +439,138 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (e.target === elModalOverlay) elModalOverlay.classList.remove('open');
     });
 
-    // Refresh Races Button
     elBtnRefresh.addEventListener('click', async () => {
       await loadProgramme();
     });
 
-    // Search Bar Execution
-    const performSearch = () => {
-      const query = elSearchInput.value.trim().toLowerCase();
-      if (!query) return;
-
-      let found = null;
-      for (const r of AppState.programme) {
-        for (const c of r.courses) {
-          if (c.nom.toLowerCase().includes(query) || 
-              r.hippodrome.toLowerCase().includes(query) ||
-              `r${r.num}c${c.num}`.toLowerCase().includes(query)) {
-            found = c;
-            break;
-          }
-        }
-        if (found) break;
+    // Multi-Field Live Search Logic with Dropdown Autocomplete
+    function performSearchQuery(query) {
+      const q = query.trim().toLowerCase();
+      if (!q) {
+        if (elDropdown) elDropdown.classList.remove('open');
+        return [];
       }
 
-      if (found) {
-        selectCourse(found);
+      const matches = [];
+      AppState.programme.forEach(reunion => {
+        reunion.courses.forEach(course => {
+          const code1 = `r${reunion.num}c${course.num}`.toLowerCase();
+          const code2 = `r${reunion.num} c${course.num}`.toLowerCase();
+          const code3 = `c${course.num}`.toLowerCase();
+
+          let hitType = null;
+          let hitDetail = '';
+
+          if (code1.includes(q) || code2.includes(q) || code3 === q) {
+            hitType = 'Code';
+            hitDetail = `Course R${reunion.num}C${course.num}`;
+          } else if (course.nom.toLowerCase().includes(q)) {
+            hitType = 'Course';
+            hitDetail = course.nom;
+          } else if (reunion.hippodrome.toLowerCase().includes(q)) {
+            hitType = 'Hippodrome';
+            hitDetail = reunion.hippodrome;
+          } else if (course.partants) {
+            for (const p of course.partants) {
+              if (p.nom.toLowerCase().includes(q)) {
+                hitType = 'Cheval';
+                hitDetail = `${p.nom} (#${p.num})`;
+                break;
+              } else if (p.jockey.toLowerCase().includes(q)) {
+                hitType = 'Driver / Jockey';
+                hitDetail = `${p.jockey} (${p.nom})`;
+                break;
+              } else if (p.entraineur && p.entraineur.toLowerCase().includes(q)) {
+                hitType = 'Entraîneur';
+                hitDetail = `${p.entraineur}`;
+                break;
+              }
+            }
+          }
+
+          if (hitType) {
+            matches.push({ reunion, course, hitType, hitDetail });
+          }
+        });
+      });
+
+      return matches;
+    }
+
+    function renderSearchResults(matches) {
+      if (!elDropdown) return;
+
+      if (matches.length === 0) {
+        elDropdown.innerHTML = `<div class="search-result-item" style="cursor:default;"><span class="search-result-title" style="color:var(--text-muted);">Aucune course ou cheval trouvé pour cette recherche.</span></div>`;
+        elDropdown.classList.add('open');
+        return;
+      }
+
+      let html = '';
+      matches.slice(0, 10).forEach(item => {
+        html += `
+          <div class="search-result-item" data-course-id="${item.course.id}">
+            <div>
+              <div class="search-result-title">R${item.reunion.num}C${item.course.num} - ${item.course.nom}</div>
+              <div class="search-result-meta">${item.reunion.hippodrome} | ${item.course.heure} | <strong style="color:var(--primary-cyan);">${item.hitType} : ${item.hitDetail}</strong></div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--text-dim); font-size:0.8rem;"></i>
+          </div>
+        `;
+      });
+
+      elDropdown.innerHTML = html;
+      elDropdown.classList.add('open');
+
+      elDropdown.querySelectorAll('.search-result-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const cId = el.getAttribute('data-course-id');
+          let selected = null;
+          AppState.programme.forEach(r => {
+            r.courses.forEach(c => { if (c.id === cId) selected = c; });
+          });
+          if (selected) {
+            selectCourse(selected);
+            elDropdown.classList.remove('open');
+            elSearchInput.value = `R${selected.reunionNum}C${selected.num} - ${selected.nom}`;
+          }
+        });
+      });
+    }
+
+    elSearchInput.addEventListener('input', (e) => {
+      const q = e.target.value;
+      if (q.trim().length >= 1) {
+        const matches = performSearchQuery(q);
+        renderSearchResults(matches);
       } else {
-        alert(`Aucune course correspondant à "${query}" trouvée dans le programme.`);
+        if (elDropdown) elDropdown.classList.remove('open');
+      }
+    });
+
+    const triggerSearchBtn = () => {
+      const q = elSearchInput.value;
+      const matches = performSearchQuery(q);
+      if (matches.length > 0) {
+        selectCourse(matches[0].course);
+        if (elDropdown) elDropdown.classList.remove('open');
+      } else {
+        alert(`Aucun résultat trouvé pour "${q}".`);
       }
     };
 
-    elBtnSearch.addEventListener('click', performSearch);
+    elBtnSearch.addEventListener('click', triggerSearchBtn);
     elSearchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') performSearch();
+      if (e.key === 'Enter') triggerSearchBtn();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-box-wrapper') && elDropdown) {
+        elDropdown.classList.remove('open');
+      }
     });
   }
 
-  // Run app
+  // Start Application
   init();
 });

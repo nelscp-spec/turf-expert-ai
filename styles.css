@@ -1237,3 +1237,118 @@ body {
   }
 }
 
+/* Mobile Runner Cards CSS */
+.runners-mobile-cards {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+  }
+
+  .runners-table-wrapper {
+    display: none; /* Replaced by Native Touch Cards on mobile */
+  }
+
+  .runners-mobile-cards {
+    display: flex;
+  }
+}
+
+.runner-mobile-card {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobile-num-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mobile-horse-name {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  color: #fff;
+  display: block;
+}
+
+.mobile-horse-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: block;
+}
+
+.mobile-odds-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.mobile-odds-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.mobile-odds-val {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--primary-amber);
+}
+
+.mobile-card-mid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobile-score-pill {
+  font-size: 0.78rem;
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  color: var(--primary-cyan);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.mobile-card-bot {
+  border-top: 1px solid var(--border-color);
+  padding-top: 8px;
+}
+
+.btn-detail-mobile {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-detail-mobile:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+

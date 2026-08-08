@@ -224,12 +224,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     elCombinationsGrid.innerHTML = html;
   }
 
-  // 6. Render Runners Table
+  // 6. Render Runners Table & Mobile Cards
   function renderRunnersTable() {
     if (!AppState.analysisResult) return;
 
     const runners = AppState.analysisResult.runners;
-    let html = '';
+    let tableHtml = '';
+    let cardsHtml = '';
 
     runners.forEach(runner => {
       // Fer Badge
@@ -242,7 +243,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const starCount = Math.min(5, Math.max(1, Math.round((runner.presseScore || 5) / 2)));
       const starsHtml = '<i class="fa-solid fa-star"></i>'.repeat(starCount);
 
-      html += `
+      // Table Row
+      tableHtml += `
         <tr>
           <td><span class="runner-num-badge">${runner.num}</span></td>
           <td>
@@ -272,9 +274,42 @@ document.addEventListener('DOMContentLoaded', async () => {
           </td>
         </tr>
       `;
+
+      // Mobile Card
+      cardsHtml += `
+        <div class="runner-mobile-card glass-card">
+          <div class="mobile-card-top">
+            <div class="mobile-num-name">
+              <span class="runner-num-badge">${runner.num}</span>
+              <div>
+                <strong class="mobile-horse-name">${runner.nom}</strong>
+                <span class="mobile-horse-sub">${runner.jockey} | ${runner.entraineur}</span>
+              </div>
+            </div>
+            <div class="mobile-odds-box">
+              <span class="mobile-odds-label">Cote</span>
+              <span class="mobile-odds-val">${runner.cote}</span>
+            </div>
+          </div>
+
+          <div class="mobile-card-mid">
+            <span class="fer-badge ${ferClass}"><i class="fa-solid fa-shoe-prints"></i> ${runner.fer || 'F'}</span>
+            <span class="musique-pill">${runner.musique}</span>
+            <span class="mobile-score-pill">IA: <strong>${runner.compositeScore}/100</strong></span>
+          </div>
+
+          <div class="mobile-card-bot">
+            <button class="btn-detail-mobile btn-detail" data-runner-num="${runner.num}">
+              <i class="fa-solid fa-circle-info"></i> Voir Fiche Complète
+            </button>
+          </div>
+        </div>
+      `;
     });
 
-    elRunnersTableBody.innerHTML = html;
+    elRunnersTableBody.innerHTML = tableHtml;
+    const elMobileContainer = document.getElementById('runnersMobileCardsContainer');
+    if (elMobileContainer) elMobileContainer.innerHTML = cardsHtml;
 
     // Attach click listeners for detail buttons
     document.querySelectorAll('.btn-detail').forEach(btn => {

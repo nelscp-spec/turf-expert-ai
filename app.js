@@ -52,32 +52,85 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadProgramme();
   }
 
-  // Set default date in datePicker
-  function setupDatePicker() {
-    if (elDatePicker) {
-      const todayISO = new Date().toISOString().split('T')[0];
-      elDatePicker.value = todayISO;
+  // Calendar Navigation Controls
+  const btnDatePrev = document.getElementById('btnDatePrev');
+  const btnDateToday = document.getElementById('btnDateToday');
+  const btnDateNext = document.getElementById('btnDateNext');
+  const calendarNavInput = document.getElementById('calendarNavInput');
+  const dateTitleText = document.getElementById('dateTitleText');
 
-      elDatePicker.addEventListener('change', async (e) => {
-        const val = e.target.value;
-        if (val) {
-          const parts = val.split('-');
-          const ddmmyyyy = `${parts[2]}${parts[1]}${parts[0]}`;
-          await loadProgramme(ddmmyyyy);
+  let currentDateObj = new Date();
+
+  function formatDateToDDMMYYYY(d) {
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}${month}${year}`;
+  }
+
+  function formatDateToISO(d) {
+    return d.toISOString().split('T')[0];
+  }
+
+  function formatPrettyDate(d) {
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const str = d.toLocaleDateString('fr-FR', options);
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function setupDatePicker() {
+    if (calendarNavInput) {
+      calendarNavInput.value = formatDateToISO(currentDateObj);
+      calendarNavInput.addEventListener('change', async (e) => {
+        if (e.target.value) {
+          const parts = e.target.value.split('-');
+          currentDateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+          updateActiveCalendarBtn(null);
+          await loadProgramme(formatDateToDDMMYYYY(currentDateObj));
         }
+      });
+    }
+
+    if (btnDatePrev) {
+      btnDatePrev.addEventListener('click', async () => {
+        currentDateObj.setDate(currentDateObj.getDate() - 1);
+        if (calendarNavInput) calendarNavInput.value = formatDateToISO(currentDateObj);
+        updateActiveCalendarBtn(btnDatePrev);
+        await loadProgramme(formatDateToDDMMYYYY(currentDateObj));
+      });
+    }
+
+    if (btnDateToday) {
+      btnDateToday.addEventListener('click', async () => {
+        currentDateObj = new Date();
+        if (calendarNavInput) calendarNavInput.value = formatDateToISO(currentDateObj);
+        updateActiveCalendarBtn(btnDateToday);
+        await loadProgramme(formatDateToDDMMYYYY(currentDateObj));
+      });
+    }
+
+    if (btnDateNext) {
+      btnDateNext.addEventListener('click', async () => {
+        currentDateObj.setDate(currentDateObj.getDate() + 1);
+        if (calendarNavInput) calendarNavInput.value = formatDateToISO(currentDateObj);
+        updateActiveCalendarBtn(btnDateNext);
+        await loadProgramme(formatDateToDDMMYYYY(currentDateObj));
       });
     }
   }
 
+  function updateActiveCalendarBtn(activeBtn) {
+    [btnDatePrev, btnDateToday, btnDateNext].forEach(btn => {
+      if (btn) btn.classList.remove('active');
+    });
+    if (activeBtn) activeBtn.classList.add('active');
+  }
+
   // 2. Fetch Programme
   async function loadProgramme(dateStr = null) {
-    elReunionsList.innerHTML = `<div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> Chargement du programme PMU en direct...</div>`;
+    elReunionsList.innerHTML = `<div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> Chargement du programme PMU...</div>`;
     
-    let targetDateStr = dateStr;
-    if (!targetDateStr) {
-      const d = new Date();
-      targetDateStr = String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0') + d.getFullYear();
-    }
+    let targetDateStr = dateStr || formatDateToDDMMYYYY(currentDateObj);
 
     try {
       const res = await fetch(`/api/programme?date=${targetDateStr}`);
@@ -86,14 +139,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (Array.isArray(data) && data.length > 0) {
           AppState.programme = data;
         } else {
-          AppState.programme = await TurfData.getTodayProgramme();
+          AppState.programme = await TurfData.getTodayProgramme(targetDateStr);
         }
       } else {
-        AppState.programme = await TurfData.getTodayProgramme();
+        AppState.programme = await TurfData.getTodayProgramme(targetDateStr);
       }
     } catch (e) {
       console.warn("Direct API proxy unavailable, using client dataset fallback:", e);
-      AppState.programme = await TurfData.getTodayProgramme();
+      AppState.programme = await TurfData.getTodayProgramme(targetDateStr);
+    }
+
+    const totalReunions = AppState.programme.length;
+    const totalCourses = AppState.programme.reduce((acc, r) => acc + (r.courses ? r.courses.length : 0), 0);
+
+    if (dateTitleText) {
+      dateTitleText.textContent = `Programme du ${formatPrettyDate(currentDateObj)} : ${totalReunions} Réunions & ${totalCourses} Courses PMU`;
     }
 
     renderSidebarReunions();

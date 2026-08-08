@@ -52,6 +52,22 @@
       </div>
     </header>
 
+    <!-- Calendar & Date Navigation Bar -->
+    <section class="calendar-bar glass-card">
+      <div class="calendar-controls">
+        <button id="btnDatePrev" class="date-nav-btn"><i class="fa-solid fa-chevron-left"></i> Hier</button>
+        <button id="btnDateToday" class="date-nav-btn active"><i class="fa-solid fa-calendar-day"></i> Aujourd'hui</button>
+        <button id="btnDateNext" class="date-nav-btn">Demain <i class="fa-solid fa-chevron-right"></i></button>
+        <div class="custom-date-picker-box">
+          <i class="fa-solid fa-calendar-days text-cyan"></i>
+          <input type="date" id="calendarNavInput" title="Sélectionner une date personnalisée">
+        </div>
+      </div>
+      <div class="selected-date-display" id="selectedDateDisplay">
+        <i class="fa-solid fa-horse-head text-emerald"></i> <strong id="dateTitleText">Chargement du programme PMU...</strong>
+      </div>
+    </section>
+
     <!-- Strategy Selection Bar -->
     <section class="strategy-bar glass-card">
       <div class="strategy-selector">

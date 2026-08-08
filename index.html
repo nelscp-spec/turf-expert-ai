@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TurfExpert AI - Automate & Spécialiste Paris Hippiques</title>
+  <meta name="description" content="Assistant spécialiste d'analyse hippique et générateur de combinaisons de paris optimisées (Sécurité & Équilibré).">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    
+    <!-- Top Header Navigation -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-box">
+          <i class="fa-solid fa-horse-head logo-icon"></i>
+          <div>
+            <h1 class="logo-title">TURF<span>EXPERT</span> AI</h1>
+            <span class="logo-subtitle">Automate Spécialiste de Paris Hippiques</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="raceSearchInput" placeholder="Rechercher une course ou un prix (ex: Vincennes, Prix d'Amérique, R1C3)...">
+          <button id="btnSearch" class="btn-search"><i class="fa-solid fa-bolt"></i> Analyser</button>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="live-status-pill">
+          <span class="pulse-dot"></span>
+          <span id="liveStatusText">PMU Direct Connecté</span>
+        </div>
+        <div class="date-badge" id="currentDateBadge">
+          <i class="fa-regular fa-calendar-days"></i> <span>Aujourd'hui</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Strategy Selection Bar -->
+    <section class="strategy-bar glass-card">
+      <div class="strategy-selector">
+        <span class="selector-label"><i class="fa-solid fa-sliders"></i> Stratégie de Paris :</span>
+        <div class="tab-buttons">
+          <button class="tab-btn active" data-strategy="ALL">
+            <i class="fa-solid fa-layer-group"></i> Toutes les Combinaisons
+          </button>
+          <button class="tab-btn" data-strategy="SECURITE">
+            <i class="fa-solid fa-shield-halved"></i> Stratégie Sécurité <span class="badge-tag green">Faible Risque</span>
+          </button>
+          <button class="tab-btn" data-strategy="EQUILIBRE">
+            <i class="fa-solid fa-scale-balanced"></i> Stratégie Équilibrée <span class="badge-tag amber">Optimisé ROI</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="budget-setting">
+        <label for="inputBudget"><i class="fa-solid fa-wallet"></i> Budget de Pari (€) :</label>
+        <input type="number" id="inputBudget" value="20" min="2" max="500" step="2">
+        <button id="btnRecalculateBudget" class="btn-budget"><i class="fa-solid fa-calculator"></i> Calculer Mises</button>
+      </div>
+    </section>
+
+    <!-- Main Workspace Content -->
+    <main class="app-main">
+
+      <!-- Left Sidebar: Réunions & Courses Navigator -->
+      <aside class="sidebar-races glass-card">
+        <div class="sidebar-header">
+          <h2><i class="fa-solid fa-trophy"></i> Programme du Jour</h2>
+          <button id="btnRefreshRaces" class="btn-icon" title="Rafraîchir les cotes PMU"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+
+        <div class="reunions-list" id="reunionsListContainer">
+          <!-- Dynamically populated meetings & races list -->
+          <div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> Chargement des courses...</div>
+        </div>
+      </aside>
+
+      <!-- Right Dashboard: Race Analysis & Bet Generator -->
+      <section class="dashboard-content">
+
+        <!-- Selected Race Info Header Banner -->
+        <div class="race-header-banner glass-card" id="raceHeaderBanner">
+          <div class="banner-top">
+            <div class="race-meta-title">
+              <span class="badge-reunion" id="bannerReunionCode">R1 C3</span>
+              <h2 id="bannerRaceName">Grand Prix de Paris</h2>
+              <span class="discipline-badge" id="bannerDiscipline">Trot Attelé</span>
+            </div>
+            <div class="race-timer-pill" id="bannerRaceTime">
+              <i class="fa-regular fa-clock"></i> Départ : 15:15
+            </div>
+          </div>
+
+          <div class="banner-details-grid">
+            <div class="meta-item">
+              <i class="fa-solid fa-location-dot"></i>
+              <div>
+                <span class="meta-label">Hippodrome</span>
+                <strong id="bannerHippodrome">Paris-Vincennes</strong>
+              </div>
+            </div>
+
+            <div class="meta-item">
+              <i class="fa-solid fa-ruler-horizontal"></i>
+              <div>
+                <span class="meta-label">Distance & Piste</span>
+                <strong id="bannerDistance">2700m (Grande Piste, Cendrée)</strong>
+              </div>
+            </div>
+
+            <div class="meta-item">
+              <i class="fa-solid fa-sack-dollar"></i>
+              <div>
+                <span class="meta-label">Allocation</span>
+                <strong id="bannerAllocation">90 000 €</strong>
+              </div>
+            </div>
+
+            <div class="meta-item">
+              <i class="fa-solid fa-horse"></i>
+              <div>
+                <span class="meta-label">Partants</span>
+                <strong id="bannerRunnersCount">16 chevaux</strong>
+              </div>
+            </div>
+
+            <div class="meta-item highlight">
+              <i class="fa-solid fa-chart-line"></i>
+              <div>
+                <span class="meta-label">Indice de Difficulté</span>
+                <strong id="bannerDifficulty">Moyen (8/10)</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 1: Expert AI Generated Betting Combinations -->
+        <div class="section-container">
+          <div class="section-title-bar">
+            <h3><i class="fa-solid fa-wand-magic-sparkles text-emerald"></i> Combinaisons de Paris Recommandées par l'IA</h3>
+            <span class="subtitle">Analyse croisée Equidia, Turfomania, Paris-Turf & Cotes PMU en temps réel</span>
+          </div>
+
+          <div class="combinations-grid" id="combinationsGridContainer">
+            <!-- Dynamically populated generated tickets -->
+            <div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i> Génération des combinaisons optimales...</div>
+          </div>
+        </div>
+
+        <!-- Section 2: Complete Race Analysis & Runners Table -->
+        <div class="section-container">
+          <div class="section-title-bar">
+            <h3><i class="fa-solid fa-list-ol text-cyan"></i> Analyse Technico-Statistique des Partants</h3>
+            <div class="table-legend">
+              <span class="legend-item"><i class="fa-solid fa-circle text-emerald"></i> Base Solide</span>
+              <span class="legend-item"><i class="fa-solid fa-circle text-cyan"></i> Favori</span>
+              <span class="legend-item"><i class="fa-solid fa-circle text-amber"></i> Challenger</span>
+              <span class="legend-item"><i class="fa-solid fa-circle text-purple"></i> Value Bet / Tocard</span>
+            </div>
+          </div>
+
+          <div class="runners-table-wrapper glass-card">
+            <table class="runners-table" id="runnersTable">
+              <thead>
+                <tr>
+                  <th>N°</th>
+                  <th>Cheval</th>
+                  <th>Ferrure</th>
+                  <th>Jockey / Driver</th>
+                  <th>Entraîneur</th>
+                  <th>Musique (Forme)</th>
+                  <th>Consensus Presse</th>
+                  <th>Cote Direct</th>
+                  <th>Score IA</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="runnersTableBody">
+                <!-- Dynamically populated table rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 3: Synthesis & AI Expert Rationale -->
+        <div class="section-container">
+          <div class="synthesis-card glass-card">
+            <div class="synthesis-header">
+              <i class="fa-solid fa-brain synthesis-icon"></i>
+              <div>
+                <h4>Synthèse et Analyse Spécialiste Hippique</h4>
+                <p>Pourquoi ces combinaisons sont sélectionnées pour cette course</p>
+              </div>
+            </div>
+            <div class="synthesis-content" id="synthesisTextContainer">
+              <!-- Dynamically populated text synthesis -->
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- Horse Detail Modal / Drawer -->
+    <div class="modal-overlay" id="horseModalOverlay">
+      <div class="modal-card glass-card">
+        <button class="modal-close" id="btnModalClose"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-header" id="modalHorseHeader">
+          <!-- Populated by JS -->
+        </div>
+        <div class="modal-body" id="modalHorseBody">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- App Footer -->
+    <footer class="app-footer">
+      <p><strong>TurfExpert AI</strong> - Plateforme d'analyse hippique et d'aide à la décision. Jouez avec modération. Les paris hippiques comportent des risques de perte en capital.</p>
+    </footer>
+
+  </div>
+
+  <!-- App Scripts -->
+  <script src="turfData.js"></script>
+  <script src="turfEngine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
